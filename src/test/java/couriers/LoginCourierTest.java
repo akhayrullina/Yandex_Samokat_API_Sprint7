@@ -1,79 +1,71 @@
 package couriers;
 
-import io.restassured.RestAssured;
-import io.restassured.config.SSLConfig;
 import io.restassured.response.Response;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import pojo.Courier;
+import utils.BaseURL;
+import utils.api.CourierApi;
 import java.util.List;
-import static io.restassured.RestAssured.given;
+import java.util.stream.Stream;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 
-@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-public class LoginCourierTest {
+public class LoginCourierTest extends BaseURL {
+    private CourierApi courierApi;
+    private static List<Courier> testCreateCouriers = List.of(
+            new Courier("courierAutotest1", "qwerty123", "DimaCourier"),
+            new Courier("courierAutotest3", "qwerty456", "VasyaCourier"));
+    private static List<Courier> testDeleteCouriers = List.of(
+            new Courier("courierAutotest1", "qwerty123"),
+            new Courier("courierAutotest3", "qwerty456"));
+
+    public static List<Courier> courierDetailsForCreate() {
+        return testCreateCouriers;
+    }
+
+    public static List<Courier> courierDetailsForDelete() {
+        return testDeleteCouriers;
+    }
+
+    static Stream<Arguments> correctCourierDetails() {
+        return testDeleteCouriers.stream().map(Arguments::of);
+    }
+
+    static Stream<Arguments> incorrectCourierDetails() {
+        return Stream.of(
+                Arguments.of(new Courier("courierAutotest1", "")),
+                Arguments.of(new Courier("", "qwerty456"))
+        );
+    }
 
     @BeforeEach
-    public void setUp() {
-        RestAssured.baseURI = "https://qa-scooter.praktikum-services.ru/";
-
-        // Настраиваем RestAssured на игнорирование SSL ошибок
-        RestAssured.config = RestAssured.config()
-                .sslConfig(SSLConfig.sslConfig().relaxedHTTPSValidation());
+    public void init() {
+        courierApi = new CourierApi(requestSpec);
     }
 
-    static List<Arguments> courierDetailsForCreate() {
-        return List.of(
-                Arguments.of("{\"login\": \"courierAutotest1\", \"password\": \"qwerty123\", \"firstName\": \"DimaCourier\"}"),
-                Arguments.of("{\"login\": \"courierAutotest3\", \"password\": \"qwerty456\", \"firstName\": \"VasyaCourier\"}")
-        );
-    }
-
-    static List<Arguments> correctCourierDetails() {
-        return List.of(
-                Arguments.of("{\"login\": \"courierAutotest1\", \"password\": \"qwerty123\"}"),
-                Arguments.of("{\"login\": \"courierAutotest3\", \"password\": \"qwerty456\"}")
-        );
-    }
-
-    static List<Arguments> incorrectCourierDetails() {
-        return List.of(
-                Arguments.of("{\"login\": \"courierAutotest1\", \"password\": \"\"}"),
-                Arguments.of("{\"login\": \"\", \"password\": \"qwerty456\"}")
-        );
-    }
-
-    @ParameterizedTest
-    @MethodSource("courierDetailsForCreate")
+    @BeforeAll
     @DisplayName("Создание курьера для проверки авторизации")
-    @Order(1)
-    public void createCourierWithValidDataReturnsOk(String json) {
-        Response response =
-                given()
-                        .header("Content-type", "application/json")
-                        .and()
-                        .body(json)
-                        .when()
-                        .post("/api/v1/courier");
-        response.then().assertThat().body("ok", equalTo(true))
-                .and()
-                .statusCode(201);
+    public static void createCouriers() {
+        CourierApi createCourierApi = new CourierApi(requestSpec);
+        List<Courier> createCouriers = courierDetailsForCreate();
+
+        for (Courier courier: createCouriers) {
+            Response response = createCourierApi.createCourier(courier);
+
+            response.then().assertThat().body("ok", equalTo(true))
+                    .and()
+                    .statusCode(201);
+        }
     }
 
     @ParameterizedTest
     @MethodSource("correctCourierDetails")
     @DisplayName("Авторизация курьера в системе с валидным логином и паролем")
-    @Order(2)
-    public void loginCourierWithCorrectDetailsReturns200(String json) {
-        Response loginResponse =
-                given()
-                        .header("Content-type", "application/json")
-                        .and()
-                        .body(json)
-                        .when()
-                        .post("/api/v1/courier/login");
+    public void loginCourierWithCorrectDetailsReturns200(Courier courier) {
+        Response loginResponse = courierApi.loginCourier(courier);
         loginResponse.then().statusCode(200)
                 .and().assertThat().body("id", notNullValue());
     }
@@ -81,58 +73,39 @@ public class LoginCourierTest {
     @ParameterizedTest
     @MethodSource("incorrectCourierDetails")
     @DisplayName("Авторизация курьера в системе без логина или пароля")
-    @Order(3)
-    public void loginCourierWithoutLoginOrPasswordReturns400(String json) {
-        Response loginResponse =
-                given()
-                        .header("Content-type", "application/json")
-                        .and()
-                        .body(json)
-                        .when()
-                        .post("/api/v1/courier/login");
+    public void loginCourierWithoutLoginOrPasswordReturns400(Courier courier) {
+        Response loginResponse = courierApi.loginCourier(courier);
         loginResponse.then().statusCode(400)
                 .and().assertThat().body("message", equalTo("Недостаточно данных для входа"));
     }
 
     @Test
     @DisplayName("Авторизация курьера в системе с несуществующим-логином-паролем")
-    @Order(4)
     public void loginCourierWithIncorrectDetailsReturns404() {
-        String json = "{\"login\": \"TestAutotest\", \"password\": \"111werty123\"}";
-        Response loginResponse =
-                given()
-                        .header("Content-type", "application/json")
-                        .and()
-                        .body(json)
-                        .when()
-                        .post("/api/v1/courier/login");
+        Courier courier = new Courier("TestAutotest", "111werty123");
+        Response loginResponse = courierApi.loginCourier(courier);
         loginResponse.then().statusCode(404)
                 .and().assertThat().body("message", equalTo("Учетная запись не найдена"));
     }
 
 
-    @ParameterizedTest
-    @MethodSource("correctCourierDetails")
+    @AfterAll
     @DisplayName("Удаление курьеров после выполнения автотестов")
-    @Order(5)
-    public void deleteCourierDetailsAfterTest(String json) {
-        //Логин курьера, чтобы извлечь его id
-        Response loginResponse =
-                given()
-                        .header("Content-type", "application/json")
-                        .and()
-                        .body(json)
-                        .when()
-                        .post("/api/v1/courier/login");
-        loginResponse.then().statusCode(200);
+    public static void deleteCourierDetailsAfterTest() {
+        CourierApi cleanUpApi = new CourierApi(requestSpec);
+        List<Courier> deleteCouriers = courierDetailsForDelete();
 
-        //Извлечение id курьера
-        int courierId = loginResponse.jsonPath().getInt("id");
+        for (Courier courier: deleteCouriers) {
+            //Логин курьера, чтобы извлечь его id
+            Response loginResponse = cleanUpApi.loginCourier(courier);
+            loginResponse.then().statusCode(200);
 
-        //Удаление курьера, используя id
-        Response deleteResponse = given()
-                .when()
-                .delete("/api/v1/courier/" + courierId);
-        deleteResponse.then().statusCode(200).body("ok", equalTo(true));
+            //Извлечение id курьера
+            int courierId = loginResponse.jsonPath().getInt("id");
+
+            //Удаление курьера, используя id
+            Response deleteResponse = cleanUpApi.deleteCourier(courierId);
+            deleteResponse.then().statusCode(200).body("ok", equalTo(true));
+        }
     }
 }

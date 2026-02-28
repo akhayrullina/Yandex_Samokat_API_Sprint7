@@ -1,32 +1,25 @@
 package orders;
 
-import io.restassured.RestAssured;
-import io.restassured.config.SSLConfig;
 import io.restassured.response.Response;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import static io.restassured.RestAssured.given;
+import utils.BaseURL;
+import utils.api.OrderApi;
 
-public class ListOfOrders {
+
+public class ListOfOrders extends BaseURL {
+    private OrderApi orderApi;
 
     @BeforeEach
-    public void setUp() {
-        RestAssured.baseURI = "https://qa-scooter.praktikum-services.ru/";
-
-        // Настраиваем RestAssured на игнорирование SSL ошибок
-        RestAssured.config = RestAssured.config()
-                .sslConfig(SSLConfig.sslConfig().relaxedHTTPSValidation());
+    public void init() {
+        orderApi = new OrderApi(requestSpec);
     }
 
     @Test
     @DisplayName("Проверка получения списка заказов")
     public void getListOfOrders() {
-        Response response =
-                given()
-                        .get("/api/v1/orders");
-        response.then()
-                .statusCode(200);
-        System.out.println(response.body().asString());
+        Response response = orderApi.getOrders();
+        response.then().statusCode(200);
     }
 }
