@@ -8,33 +8,12 @@ import java.util.ArrayList;
 import java.util.List;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
+import static testdata.OrderTestData.*;
 import pojo.Order;
 
 public class CreateOrderTest extends BaseURL {
     private OrderApi orderApi;
     private static ArrayList<Integer> ordersTrack = new ArrayList<>();
-    private static List<Order> testCreateOrders = List.of(
-            new Order("Вася", "Иванов",
-                    "г. Москва, ул. Нестерова, д. 142, кв. 7",
-                    "4", "+7 917 355 35 35",
-                    "5", "2026-06-06",
-                    "Привезите рабочий самокат", new String[]{"BLACK"}),
-            new Order("Мария", "Митрошина",
-                    "г. Москва, ул. Садовая, д. 19, кв. 56",
-                    "6", "+7 917 555 35 35",
-                    "5", "2026-07-06",
-                    "Самокат любого цвета",
-                    new String[]{"BLACK", "GREY"} ),
-            new Order("Анастасия", "Горшкова",
-                    "г. Москва, ул. Номостовая, д. 87, кв. 98" ,
-                    "8", "+7 917 888 35 35",
-                    "5", "2026-08-06",
-                    "Самокат любого цвета", new String[]{""})
-    );
-
-    public static List<Order> orderDetailsForCreate() {
-        return testCreateOrders;
-    }
 
     @BeforeEach
     public void init() {
@@ -44,7 +23,7 @@ public class CreateOrderTest extends BaseURL {
     @Test
     @DisplayName("Проверка создания заказа с валидными данными")
     public void createOrderWithValidDataReturnsOk() {
-        List<Order> createOrders = orderDetailsForCreate();
+        List<Order> createOrders = List.of(ORDER_0_COLOR, ORDER_1_COLOR, ORDER_2_COLOR);
 
         for (Order order: createOrders) {
             Response orderResponse = orderApi.createOrder(order);
@@ -58,8 +37,6 @@ public class CreateOrderTest extends BaseURL {
             System.out.println(ordersTrack);
         }
     }
-
-
 
     @AfterAll
     @DisplayName("Удаление заказов после выполнения автотестов")
